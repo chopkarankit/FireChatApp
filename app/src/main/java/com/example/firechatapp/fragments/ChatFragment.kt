@@ -5,7 +5,18 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.firechatapp.AdapterClasses.UserAdapter
+import com.example.firechatapp.ModelClasses.ChatList
+import com.example.firechatapp.ModelClasses.Users
 import com.example.firechatapp.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -17,7 +28,8 @@ private const val ARG_PARAM2 = "param2"
  * Use the [ChatFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
-class ChatFragment : Fragment() {
+class ChatFragment : Fragment()
+{
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
@@ -30,13 +42,90 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private var userAdapter: UserAdapter? = null
+    private var mUsers: List<Users>? = null
+    private var usersChatList: List<ChatList>? = null
+    lateinit var recycler_view_chatlist: RecyclerView
+    private var firebaseUser: FirebaseUser? = null
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View?
+    {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_chat, container, false)
+        val view = inflater.inflate(R.layout.fragment_chat, container, false)
+
+        recycler_view_chatlist = view.findViewById(R.id.recycler_view_chatlist)
+        recycler_view_chatlist.setHasFixedSize(true)
+        recycler_view_chatlist.layoutManager = LinearLayoutManager(context)
+
+        firebaseUser = FirebaseAuth.getInstance().currentUser
+
+        usersChatList = ArrayList()
+
+        val ref = FirebaseDatabase.getInstance().reference.child("ChatList").child(firebaseUser!!.uid)
+        ref!!.addValueEventListener(object : ValueEventListener{
+            override fun onDataChange(p0: DataSnapshot)
+            {
+                (usersChatList as ArrayList).clear()
+
+                for (dataSnapshot in p0.children)
+                {
+                    val chatList = dataSnapshot.getValue(ChatList::class.java)
+
+                    (usersChatList as ArrayList).add(chatList!!)
+                }
+                retrieveChatList()
+            }
+
+            override fun onCancelled(p0: DatabaseError)
+            {
+
+            }
+
+        })
+
+
+        return view
     }
+
+    private  fun retrieveChatList()
+    {
+        mUsers = ArrayList()
+
+        val ref = FirebaseDatabase.getInstance().reference.child("Users")
+        ref!!.addValueEventListener(object : ValueEventListener{
+
+            override fun onDataChange(p0: DataSnapshot)
+            {
+                (mUsers as ArrayList).clear()
+
+                for (datasnopshot in p0.children)
+                {
+                    val user = datasnopshot.getValue(Users::class.java)
+
+                    for (eachChatList in usersChatList!!)
+                    {
+                        if (user!!.getUID().equals(eachChatList.getId()))
+                        {
+                            (mUsers as ArrayList).add(user!!)
+                        }
+                    }
+                }
+
+                userAdapter = UserAdapter(context!!, (mUsers as ArrayList<Users>), true)
+                recycler_view_chatlist.adapter = userAdapter
+            }
+
+            override fun onCancelled(p0: DatabaseError)
+            {
+
+            }
+        })
+    }
+
+
 
     companion object {
         /**
